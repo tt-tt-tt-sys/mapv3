@@ -1,97 +1,69 @@
-  <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
-    <div className="lg:col-span-3">
-      <div className="h-[70vh] rounded-2xl overflow-hidden border">
-        <MapContainer center={[-27, 134]} zoom={4} style={{ height: "100%", width: "100%" }}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <FitToData stores={stores} />
+import { useState } from "react";
+import { CSVLink } from "react-csv";
 
-          {/* Postcode polygons via GeoJSON. Style based on first matching store. */}
-          {features.map((f, idx) => {
-            // Determine fill color by first store that includes this postcode
-            let fill = "#94a3b8"; // slate-400 default
-            for (const s of stores) {
-              if (assignments?.get(s.id)?.has(f?.properties?.pcode)) {
-                fill = colorByStore[s.id] || fill;
-                break;
-              }
-            }
-            return (
-              <GeoJSON
-                key={f?.properties?.pcode || idx}
-                data={f}
-                style={() => ({ color: "#111827", weight: 0.5, fillColor: fill, fillOpacity: 0.25 })}
-              />
-            );
-          })}
+export default function App() {
+  const [stores, setStores] = useState([
+    { id: 1, name: "Store 1", postcodes: ["2000", "2001"] },
+    { id: 2, name: "Store 2", postcodes: ["3000"] },
+  ]);
 
-          {/* Store markers + radii */}
-          {stores.map((s) => (
-            <React.Fragment key={s.id}>
-              <Marker position={[s.lat, s.lng]} icon={markerIcon}>
-                <Popup>
-                  <div className="space-y-2">
-                    <div className="font-semibold">{s.name}</div>
-                    <div className="text-sm">Radius: {s.radiusKm} km</div>
-                    <button
-                      onClick={() => exportPerStoreCSV(s.id)}
-                      className="px-3 py-1 rounded bg-black text-white text-sm"
-                    >
-                      Download CSV
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-              <Circle center={[s.lat, s.lng]} radius={s.radiusKm * 1000} pathOptions={{ color: colorByStore[s.id] || "#2563eb" }} />
-            </React.Fragment>
+  // Combine all stores’ postcodes into one CSV
+  const exportCombinedCSV = () => {
+    const rows = [];
+    stores.forEach((store) => {
+      store.postcodes.forEach((pc) => {
+        rows.push({ store: store.name, postcode: pc });
+      });
+    });
+    return rows;
+  };
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Sidebar */}
+      <aside className="w-1/3 p-6 border-r">
+        <h1 className="text-2xl font-bold mb-4">Multi-Store Postcode Tool</h1>
+
+        <div className="space-y-4">
+          {stores.map((store) => (
+            <div key={store.id} className="p-4 border rounded-2xl">
+              <h2 className="text-lg font-semibold">{store.name}</h2>
+              <p className="text-sm text-gray-600">
+                Assigned Postcodes: {store.postcodes.join(", ")}
+              </p>
+              <CSVLink
+                data={store.postcodes.map((pc) => ({ postcode: pc }))}
+                filename={`${store.name}-postcodes.csv`}
+                className="mt-2 inline-block px-3 py-1 bg-blue-500 text-white rounded-xl"
+              >
+                Export CSV
+              </CSVLink>
+            </div>
           ))}
-        </MapContainer>
-      </div>
+        </div>
+
+        {/* Controls */}
+        <aside className="space-y-4 mt-6">
+          <div className="p-4 border rounded-2xl">
+            <div className="flex flex-col gap-2">
+              <CSVLink
+                data={exportCombinedCSV()}
+                filename="all-stores-postcodes.csv"
+                className="w-full px-4 py-2 rounded-xl bg-black text-white text-center"
+              >
+                Export All Stores CSV
+              </CSVLink>
+            </div>
+          </div>
+        </aside>
+      </aside>
+
+      {/* Map placeholder */}
+      <main className="flex-1 p-6">
+        <div className="w-full h-full bg-gray-100 rounded-2xl flex items-center justify-center">
+          <p className="text-gray-500">[Map will go here]</p>
+        </div>
+      </main>
     </div>
-
-    {/* Controls */}
-    <aside className="space-y-4">
-      <div className=\"p-4 border rounded-2xl\">
-        <div className=\"flex flex-col gap-2\">
-          <button onClick={exportCombinedCSV} className=\"w-full px-4 py-2 rounded-xl bg-black text-white\">
-            Export Combined CSV
-          </button>
-          <button onClick={exportMatrixCSV} className=\"w-full px-4 py-2 rounded-xl bg-black text-white\">
-            Export Matrix CSV
-          </button>
-        </div>
-        <div className=\"text-xs text-gray-500 mt-2 space-y-1\">
-          <p>Combined: <code>store, postcode</code> for all stores.</p>
-          <p>Matrix: rows=postcodes, columns=stores, values in {0,1}.</p>
-        </div>
-      </div>
-
-      {/* Diagnostics Panel */}
-      <div className="p-4 border rounded-2xl">
-        <h3 className="font-semibold mb-2">Diagnostics</h3>
-        <ul className="text-xs space-y-1">
-          {diag.map((t, i) => (
-            <li key={i} className={t.pass ? "text-green-600" : "text-red-600"}>
-              {t.pass ? "✔" : "✖"} {t.name}
-            </li>
-          ))}
-        </ul>
-        {isSample ? (
-          <p className="text-[11px] text-gray-500 mt-2">
-            Using sample data: SYD→2000; MEL→3000,3057 should be green.
-          </p>
-        ) : (
-          <p className="text-[11px] text-gray-500 mt-2">Upload real data to re-run generic checks.</p>
-        )}
-      </div>
-    </aside>
-  </div>
-
-  <footer className="p-4 text-xs text-gray-500">
-    <p>
-      Preview uses a tiny demo GeoJSON. For production, upload full AU postcode polygons (ABS Postal Areas or Australia Post postcode boundaries) as a GeoJSON FeatureCollection with <code>properties.pcode</code>.
-    </p>
-  </footer>
-</div>
+  );
+}
