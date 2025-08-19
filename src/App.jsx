@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import postcodeData from "../postcode_data.json";
+import postcodeData from "./postcode_data.json";
 
 function App() {
   const [stores] = useState([
