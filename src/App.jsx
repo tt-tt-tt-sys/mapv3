@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  CircleMarker
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import postcodeData from "./postcode_data.json";
 
@@ -22,6 +28,23 @@ function App() {
       ...prev,
       [pc.postcode]: activeStore.id
     }));
+  };
+
+  // Export CSV
+  const exportCSV = () => {
+    let csv = "postcode,store\n";
+    Object.entries(assignments).forEach(([pc, storeId]) => {
+      const storeName = stores.find((s) => s.id === storeId)?.name || "";
+      csv += `${pc},${storeName}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "assignments.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -57,7 +80,7 @@ function App() {
                 assignments[pc.postcode] === activeStore?.id
                   ? "red" // highlight if assigned to active store
                   : assignments[pc.postcode]
-                  ? "blue" // already assigned to some store
+                  ? "blue" // already assigned
                   : "grey" // unassigned
             }}
             eventHandlers={{
@@ -108,6 +131,22 @@ function App() {
             </li>
           ))}
         </ul>
+
+        <button
+          onClick={exportCSV}
+          style={{
+            marginTop: "10px",
+            padding: "8px 12px",
+            background: "green",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+            width: "100%"
+          }}
+        >
+          Download CSV
+        </button>
       </aside>
     </div>
   );
