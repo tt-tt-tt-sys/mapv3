@@ -1,76 +1,78 @@
-import React, { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { CSVLink } from "react-csv";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  GeoJSON,
+  Marker,
+  Popup,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-function App() {
-  const [stores] = useState([
-    { id: 1, name: "Trek Belmont", position: [-33.9688, 151.2093] },
-    { id: 2, name: "Trek Majura Park", position: [-35.3080, 149.1900] }
-  ]);
+// Marker icon for stores
+const markerIcon = new L.Icon({
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
 
-  const [selectedPostcodes, setSelectedPostcodes] = useState([]);
+// Demo postcode polygons
+const SAMPLE_POSTCODES = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { pcode: "2000", name: "Sydney CBD" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [151.197, -33.878],
+            [151.21, -33.878],
+            [151.21, -33.865],
+            [151.197, -33.865],
+            [151.197, -33.878],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { pcode: "3000", name: "Melbourne CBD" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [144.955, -37.823],
+            [144.979, -37.823],
+            [144.979, -37.804],
+            [144.955, -37.804],
+            [144.955, -37.823],
+          ],
+        ],
+      },
+    },
+  ],
+};
 
-  const handleAssignPostcode = (storeId, postcode) => {
-    setSelectedPostcodes((prev) => [...prev, { storeId, postcode }]);
-  };
-
-  const csvData = selectedPostcodes.map((entry) => {
-    const store = stores.find((s) => s.id === entry.storeId);
-    return {
-      Store: store?.name || "",
-      Postcode: entry.postcode
-    };
-  });
-
-  return (
-    <div style={{ padding: "1rem" }}>
-      <h1>Multi-Store Postcode Assignment Tool</h1>
-
-      <div style={{ height: "500px", width: "100%", marginBottom: "1rem" }}>
-        <MapContainer
-          center={[-33.8688, 151.2093]}
-          zoom={6}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenStreetMap contributors"
-          />
-
-          {stores.map((store) => (
-            <Marker key={store.id} position={store.position}>
-              <Popup>
-                <b>{store.name}</b>
-                <br />
-                <button
-                  onClick={() =>
-                    handleAssignPostcode(store.id, prompt("Enter postcode:"))
-                  }
-                >
-                  Assign Postcode
-                </button>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-
-      <CSVLink
-        data={csvData}
-        filename="postcode-assignments.csv"
-        style={{
-          background: "#0070f3",
-          color: "white",
-          padding: "0.5rem 1rem",
-          borderRadius: "5px",
-          textDecoration: "none"
-        }}
-      >
-        Export CSV
-      </CSVLink>
-    </div>
-  );
-}
-
-export default App;
+// Download CSV
+function downloadCSV(filename, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    alert("No data to export.");
+    return;
+  }
+  const header = Object.keys(rows[0]).join(",");
+  const body = rows.map((r) => Object.values(r).join(",")).join("\n");
+  const csv = header + "\n" + body;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendC
