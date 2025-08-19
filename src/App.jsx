@@ -1,69 +1,76 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { CSVLink } from "react-csv";
+import "leaflet/dist/leaflet.css";
 
-export default function App() {
-  const [stores, setStores] = useState([
-    { id: 1, name: "Store 1", postcodes: ["2000", "2001"] },
-    { id: 2, name: "Store 2", postcodes: ["3000"] },
+function App() {
+  const [stores] = useState([
+    { id: 1, name: "Trek Belmont", position: [-33.9688, 151.2093] },
+    { id: 2, name: "Trek Majura Park", position: [-35.3080, 149.1900] }
   ]);
 
-  // Combine all stores’ postcodes into one CSV
-  const exportCombinedCSV = () => {
-    const rows = [];
-    stores.forEach((store) => {
-      store.postcodes.forEach((pc) => {
-        rows.push({ store: store.name, postcode: pc });
-      });
-    });
-    return rows;
+  const [selectedPostcodes, setSelectedPostcodes] = useState([]);
+
+  const handleAssignPostcode = (storeId, postcode) => {
+    setSelectedPostcodes((prev) => [...prev, { storeId, postcode }]);
   };
 
+  const csvData = selectedPostcodes.map((entry) => {
+    const store = stores.find((s) => s.id === entry.storeId);
+    return {
+      Store: store?.name || "",
+      Postcode: entry.postcode
+    };
+  });
+
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-1/3 p-6 border-r">
-        <h1 className="text-2xl font-bold mb-4">Multi-Store Postcode Tool</h1>
+    <div style={{ padding: "1rem" }}>
+      <h1>Multi-Store Postcode Assignment Tool</h1>
 
-        <div className="space-y-4">
+      <div style={{ height: "500px", width: "100%", marginBottom: "1rem" }}>
+        <MapContainer
+          center={[-33.8688, 151.2093]}
+          zoom={6}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+          />
+
           {stores.map((store) => (
-            <div key={store.id} className="p-4 border rounded-2xl">
-              <h2 className="text-lg font-semibold">{store.name}</h2>
-              <p className="text-sm text-gray-600">
-                Assigned Postcodes: {store.postcodes.join(", ")}
-              </p>
-              <CSVLink
-                data={store.postcodes.map((pc) => ({ postcode: pc }))}
-                filename={`${store.name}-postcodes.csv`}
-                className="mt-2 inline-block px-3 py-1 bg-blue-500 text-white rounded-xl"
-              >
-                Export CSV
-              </CSVLink>
-            </div>
+            <Marker key={store.id} position={store.position}>
+              <Popup>
+                <b>{store.name}</b>
+                <br />
+                <button
+                  onClick={() =>
+                    handleAssignPostcode(store.id, prompt("Enter postcode:"))
+                  }
+                >
+                  Assign Postcode
+                </button>
+              </Popup>
+            </Marker>
           ))}
-        </div>
+        </MapContainer>
+      </div>
 
-        {/* Controls */}
-        <aside className="space-y-4 mt-6">
-          <div className="p-4 border rounded-2xl">
-            <div className="flex flex-col gap-2">
-              <CSVLink
-                data={exportCombinedCSV()}
-                filename="all-stores-postcodes.csv"
-                className="w-full px-4 py-2 rounded-xl bg-black text-white text-center"
-              >
-                Export All Stores CSV
-              </CSVLink>
-            </div>
-          </div>
-        </aside>
-      </aside>
-
-      {/* Map placeholder */}
-      <main className="flex-1 p-6">
-        <div className="w-full h-full bg-gray-100 rounded-2xl flex items-center justify-center">
-          <p className="text-gray-500">[Map will go here]</p>
-        </div>
-      </main>
+      <CSVLink
+        data={csvData}
+        filename="postcode-assignments.csv"
+        style={{
+          background: "#0070f3",
+          color: "white",
+          padding: "0.5rem 1rem",
+          borderRadius: "5px",
+          textDecoration: "none"
+        }}
+      >
+        Export CSV
+      </CSVLink>
     </div>
   );
 }
+
+export default App;
