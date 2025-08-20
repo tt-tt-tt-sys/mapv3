@@ -1,159 +1,107 @@
 import React, { useState } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  CircleMarker,
-  Tooltip
-} from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import postcodeData from "./postcode_data.json";
+import MarkerClusterGroup from "react-leaflet-cluster";
 
 function App() {
   const [stores] = useState([
-    { id: 1, name: "Trek Belmont", position: [-33.9688, 151.2093] },
-    { id: 2, name: "Trek Majura Park", position: [-35.308, 149.19] }
+    { id: 1, name: "Trek Belmont", position: [-33.9688, 151.2093], color: "red" },
+    { id: 2, name: "Trek Majura Park", position: [-35.308, 149.19], color: "blue" }
   ]);
 
   const [activeStore, setActiveStore] = useState(null);
   const [assignments, setAssignments] = useState({}); // { postcode: storeId }
 
-  // Handle clicking a postcode circle
-  const handlePostcodeClick = (pc) => {
-    if (!activeStore) {
-      alert("Select a store first!");
-      return;
-    }
-    setAssignments((prev) => ({
-      ...prev,
-      [pc.postcode]: activeStore.id
-    }));
+  // Assign/unassign postcodes when clicked
+  const onEachPostcode = (feature, layer) => {
+    const pc = feature.properties.postcode;
+    layer.on({
+      click: () => {
+        if (!activeStore) return;
+        setAssignments((prev) => {
+          const newAssignments = { ...prev };
+          if (newAssignments[pc] === activeStore.id) {
+            delete newAssignments[pc]; // unassign if already assigned
+          } else {
+            newAssignments[pc] = activeStore.id;
+          }
+          return newAssignments;
+        });
+      }
+    });
   };
 
-  // Export CSV
-  const exportCSV = () => {
-    let csv = "postcode,store\n";
-    Object.entries(assignments).forEach(([pc, storeId]) => {
-      const storeName = stores.find((s) => s.id === storeId)?.name || "";
-      csv += `${pc},${storeName}\n`;
-    });
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "assignments.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+  // Style postcodes
+  const stylePostcode = (feature) => {
+    const pc = feature.properties.postcode;
+    const storeId = assignments[pc];
+    if (!storeId) {
+      return { color: "grey", weight: 1, fillOpacity: 0.1 };
+    }
+    const store = stores.find((s) => s.id === storeId);
+    return {
+      color: store.color,
+      weight: 2,
+      fillOpacity: 0.5,
+    };
   };
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
+      {/* Sidebar controls */}
+      <aside style={{ width: "250px", padding: "10px", borderRight: "1px solid #ccc" }}>
+        <h2>Stores</h2>
+        {stores.map((s) => (
+          <button
+            key={s.id}
+            style={{
+              display: "block",
+              width: "100%",
+              margin: "5px 0",
+              padding: "10px",
+              background: activeStore?.id === s.id ? s.color : "#eee",
+              color: activeStore?.id === s.id ? "#fff" : "#000",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer"
+            }}
+            onClick={() => setActiveStore(s)}
+          >
+            {s.name}
+          </button>
+        ))}
+        <pre style={{ marginTop: "20px", fontSize: "12px" }}>
+          {JSON.stringify(assignments, null, 2)}
+        </pre>
+      </aside>
+
       {/* Map */}
-      <MapContainer center={[-33.8688, 151.2093]} zoom={6} style={{ flex: 1 }}>
+      <MapContainer center={[-25, 133]} zoom={5} style={{ flex: 1 }}>
         <TileLayer
-          attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; OpenStreetMap contributors'
         />
 
+        {/* Clustered postcodes */}
+        <MarkerClusterGroup chunkedLoading>
+          {postcodeData.features.map((feature, idx) => (
+            <GeoJSON
+              key={idx}
+              data={feature}
+              style={stylePostcode}
+              onEachFeature={onEachPostcode}
+            />
+          ))}
+        </MarkerClusterGroup>
+
         {/* Store markers */}
-        {stores.map((store) => (
-          <Marker
-            key={store.id}
-            position={store.position}
-            eventHandlers={{
-              click: () => setActiveStore(store)
-            }}
-          >
-            <Popup>{store.name}</Popup>
+        {stores.map((s) => (
+          <Marker key={s.id} position={s.position}>
+            <Popup>{s.name}</Popup>
           </Marker>
         ))}
-
-        {/* Postcode centroids */}
-        {postcodeData.map((pc) => (
-          <CircleMarker
-            key={pc.postcode}
-            center={[pc.lat, pc.lng]}
-            radius={8} // bigger dot
-            pathOptions={{
-              color:
-                assignments[pc.postcode] === activeStore?.id
-                  ? "red" // highlight if assigned to active store
-                  : assignments[pc.postcode]
-                  ? "blue" // already assigned
-                  : "grey" // unassigned
-            }}
-            eventHandlers={{
-              click: () => handlePostcodeClick(pc)
-            }}
-          >
-            {/* Always visible postcode label */}
-            <Tooltip permanent direction="top" offset={[0, -10]} opacity={0.9}>
-              {pc.postcode}
-            </Tooltip>
-
-            <Popup>
-              <div>
-                <strong>Postcode:</strong> {pc.postcode}
-                <br />
-                <strong>Assigned to:</strong>{" "}
-                {assignments[pc.postcode]
-                  ? stores.find((s) => s.id === assignments[pc.postcode])?.name
-                  : "None"}
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
       </MapContainer>
-
-      {/* Sidebar */}
-      <aside style={{ width: "250px", padding: "10px", background: "#f4f4f4" }}>
-        <h3>Stores</h3>
-        {stores.map((s) => (
-          <div key={s.id}>
-            <button
-              style={{
-                background: activeStore?.id === s.id ? "black" : "white",
-                color: activeStore?.id === s.id ? "white" : "black",
-                padding: "5px 10px",
-                margin: "5px 0",
-                borderRadius: "5px",
-                width: "100%",
-                cursor: "pointer"
-              }}
-              onClick={() => setActiveStore(s)}
-            >
-              {s.name}
-            </button>
-          </div>
-        ))}
-
-        <h4>Assignments</h4>
-        <ul>
-          {Object.entries(assignments).map(([pc, storeId]) => (
-            <li key={pc}>
-              {pc} → {stores.find((s) => s.id === storeId)?.name}
-            </li>
-          ))}
-        </ul>
-
-        <button
-          onClick={exportCSV}
-          style={{
-            marginTop: "10px",
-            padding: "8px 12px",
-            background: "green",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-            width: "100%"
-          }}
-        >
-          Download CSV
-        </button>
-      </aside>
     </div>
   );
 }
