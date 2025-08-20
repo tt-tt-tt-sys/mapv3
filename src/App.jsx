@@ -4,7 +4,8 @@ import {
   TileLayer,
   Marker,
   Popup,
-  CircleMarker
+  CircleMarker,
+  Tooltip
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import postcodeData from "./postcode_data.json";
@@ -74,7 +75,7 @@ function App() {
           <CircleMarker
             key={pc.postcode}
             center={[pc.lat, pc.lng]}
-            radius={4}
+            radius={8} // bigger dot
             pathOptions={{
               color:
                 assignments[pc.postcode] === activeStore?.id
@@ -87,6 +88,11 @@ function App() {
               click: () => handlePostcodeClick(pc)
             }}
           >
+            {/* Always visible postcode label */}
+            <Tooltip permanent direction="top" offset={[0, -10]} opacity={0.9}>
+              {pc.postcode}
+            </Tooltip>
+
             <Popup>
               <div>
                 <strong>Postcode:</strong> {pc.postcode}
